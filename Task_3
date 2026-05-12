@@ -1,0 +1,169 @@
+import random
+import re
+from collections import defaultdict
+
+
+class WordMarkovChain:
+    def __init__(self, order: int = 2):
+        self.order = order
+        self.chain = defaultdict(list)
+        self.start_states = []
+
+    def train(self, text: str) -> None:
+        words = re.findall(r"\b\w[\w']*\b|[.!?]", text.lower())
+        if len(words) <= self.order:
+            raise ValueError("Text is too short for the chosen order.")
+
+        for i in range(len(words) - self.order):
+            state = tuple(words[i: i + self.order])
+            next_word = words[i + self.order]
+            self.chain[state].append(next_word)
+
+            if i == 0 or words[i - 1] in ".!?":
+                self.start_states.append(state)
+
+        print(f"[Word model] Trained on {len(words)} tokens, {len(self.chain)} unique states.")
+
+    def generate(self, num_words: int = 50, seed=None) -> str:
+        if not self.chain:
+            raise RuntimeError("Model has not been trained yet.")
+
+        if seed and seed in self.chain:
+            state = seed
+        elif self.start_states:
+            state = random.choice(self.start_states)
+        else:
+            state = random.choice(list(self.chain.keys()))
+
+        output = list(state)
+
+        for _ in range(num_words - self.order):
+            next_words = self.chain.get(state)
+            if not next_words:
+                break
+            next_word = random.choice(next_words)
+            output.append(next_word)
+            state = tuple(output[-self.order:])
+
+        return self._format(output)
+
+    @staticmethod
+    def _format(words):
+        text = " ".join(words)
+        text = re.sub(r" ([.!?,;])", r"\1", text)
+        return text[0].upper() + text[1:] if text else text
+
+
+class CharMarkovChain:
+    def __init__(self, order: int = 3):
+        self.order = order
+        self.chain = defaultdict(list)
+
+    def train(self, text: str) -> None:
+        for i in range(len(text) - self.order):
+            state = text[i: i + self.order]
+            next_char = text[i + self.order]
+            self.chain[state].append(next_char)
+
+        print(f"[Char model] Trained on {len(text)} characters, {len(self.chain)} unique states.")
+
+    def generate(self, num_chars: int = 200, seed=None) -> str:
+        if not self.chain:
+            raise RuntimeError("Model has not been trained yet.")
+
+        if seed and len(seed) >= self.order and seed[:self.order] in self.chain:
+            state = seed[:self.order]
+        else:
+            state = random.choice(list(self.chain.keys()))
+
+        output = list(state)
+
+        for _ in range(num_chars - self.order):
+            next_chars = self.chain.get(state)
+            if not next_chars:
+                break
+            next_char = random.choice(next_chars)
+            output.append(next_char)
+            state = "".join(output[-self.order:])
+
+        return "".join(output)
+
+SAMPLE_CORPUS = """
+The quick brown fox jumps over the lazy dog.
+A fox is a clever animal that lives in the wild.
+The dog barked loudly at the brown fox near the river.
+Quick animals like foxes and dogs often play in the field.
+The lazy cat slept near the warm fireplace all day long.
+Animals in the wild are quick to sense danger around them.
+The river flows quickly through the green forest every day.
+Brown bears and quick foxes share the same forest habitat.
+Dogs are loyal animals that live with humans for many years.
+The forest is full of life with animals both large and small.
+Over the hills and far away, the fox made its home safely.
+Lazy days by the river are the best days of the season.
+"""
+
+
+def run_demo():
+    print("=" * 60)
+    print("  Task-03: Text Generation with Markov Chains")
+    print("=" * 60)
+
+    print("\n📖 WORD-LEVEL MARKOV CHAIN (order = 1)\n" + "-" * 40)
+    wm1 = WordMarkovChain(order=1)
+    wm1.train(SAMPLE_CORPUS)
+    print("\nGenerated (50 words):\n")
+    print(wm1.generate(50))
+
+    print("\n\n📖 WORD-LEVEL MARKOV CHAIN (order = 2)\n" + "-" * 40)
+    wm2 = WordMarkovChain(order=2)
+    wm2.train(SAMPLE_CORPUS)
+    print("\nGenerated (50 words):\n")
+    print(wm2.generate(50))
+
+    print("\n\n🔤 CHARACTER-LEVEL MARKOV CHAIN (order = 3)\n" + "-" * 40)
+    cm = CharMarkovChain(order=3)
+    cm.train(SAMPLE_CORPUS)
+    print("\nGenerated (200 chars):\n")
+    print(cm.generate(200))
+
+    print("\n\n🌱 WORD-LEVEL WITH CUSTOM SEED (order = 2)\n" + "-" * 40)
+    seed = ("the", "quick")
+    print(f"Seed state: {seed}\n")
+    print(wm2.generate(40, seed=seed))
+
+    print("\n" + "=" * 60)
+    print("  All demos complete!")
+    print("=" * 60)
+
+
+def interactive_mode():
+    print("\n🔧  Interactive Mode")
+    print("Paste your training text. Enter a blank line to finish:\n")
+
+    lines = []
+    while True:
+        line = input()
+        if line == "":
+            break
+        lines.append(line)
+    corpus = " ".join(lines)
+
+    if not corpus.strip():
+        print("No text provided. Exiting.")
+        return
+
+    order = int(input("Enter Markov order (1-4 recommended): ") or "2")
+    length = int(input("Number of words to generate: ") or "50")
+
+    model = WordMarkovChain(order=order)
+    model.train(corpus)
+    print("\nGenerated text:\n")
+    print(model.generate(length))
+
+if __name__ == "__main__":
+    run_demo()
+
+    answer = input("\nWould you like to try interactive mode? (y/n): ").strip().lower()
+    if answer == "y":
+        interactive_mode()
